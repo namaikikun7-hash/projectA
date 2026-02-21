@@ -1,0 +1,257 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =========================================
+// 認証関連（NextAuth Prisma Adapter）
+// =========================================
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// =========================================
+// ユーザー（営業マン・管理者）
+// =========================================
+model User {
+  id             String    @id @default(cuid())
+  name           String
+  email          String    @unique
+  emailVerified  DateTime?
+  password       String?   // bcrypt ハッシュ
+  role           Role      @default(STAFF)
+  avatar         String?
+  phone          String?
+  zoomUserId     String?   // Zoom連携用
+  googleRefreshToken String? @db.Text // Google Calendar連携用
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  accounts       Account[]
+  sessions       Session[]
+  meetings       Meeting[]   @relation("AssignedStaff")
+  evaluations    Evaluation[]
+  kpiTargets     KpiTarget[]
+
+  @@index([email])
+}
+
+enum Role {
+  ADMIN   // 管理者
+  MANAGER // マネージャー
+  STAFF   // 営業スタッフ
+}
+
+// =========================================
+// 顧客
+// =========================================
+model Client {
+  id          String   @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  company     String?
+  source      LeadSource @default(UNKNOWN) // 流入元
+  schoolType  String?  // 希望のオンラインスクール種別
+  budget      Int?     // 予算（円）
+  ageGroup    String?  // 年齢層
+  occupation  String?  // 職業
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  meetings    Meeting[]
+
+  @@index([email])
+}
+
+enum LeadSource {
+  INSTAGRAM
+  TWITTER
+  YOUTUBE
+  GOOGLE_AD
+  REFERRAL
+  LP
+  UNKNOWN
+}
+
+// =========================================
+// 商談
+// =========================================
+model Meeting {
+  id               String        @id @default(cuid())
+  clientId         String
+  staffId          String
+  scheduledAt      DateTime
+  durationMinutes  Int           @default(60)
+  zoomMeetingId    String?
+  zoomJoinUrl      String?       @db.Text
+  zoomRecordingUrl String?       @db.Text
+  calendarEventId  String?
+  status           MeetingStatus @default(SCHEDULED)
+  result           MeetingResult?
+  contractAmount   Int?          // 成約金額（円）
+  notes            String?       @db.Text
+  reminderSentAt   DateTime?     // リマインダー送信日時
+  feedbackDueAt    DateTime?     // フィードバック提出期限
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  client   Client          @relation(fields: [clientId], references: [id])
+  staff    User            @relation("AssignedStaff", fields: [staffId], references: [id])
+  feedback MeetingFeedback?
+
+  @@index([staffId])
+  @@index([clientId])
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+enum MeetingStatus {
+  SCHEDULED   // 予定
+  IN_PROGRESS // 実施中
+  COMPLETED   // 完了
+  CANCELLED   // キャンセル
+  NO_SHOW     // 無断キャンセル
+}
+
+enum MeetingResult {
+  CONTRACTED // 成約
+  LOST       // 失注
+  FOLLOW_UP  // 再商談・保留
+  NO_SHOW    // 無断キャンセル
+}
+
+// =========================================
+// 商談フィードバック（営業マンが入力）
+// =========================================
+model MeetingFeedback {
+  id               String   @id @default(cuid())
+  meetingId        String   @unique
+  // 顧客の状態
+  painPoints       String?  @db.Text // 課題・悩み
+  budget           Int?     // ヒアリングした予算
+  motivation       Int      // モチベーション 1-5
+  decisionMaker    Boolean  @default(true) // 意思決定者か
+  competitors      String?  // 他社検討状況
+  // 商談評価
+  objections       String?  @db.Text // 反論・懸念事項
+  closingScore     Int      // クロージング評価 1-10
+  selfScore        Int      // 自己評価 1-5
+  nextAction       String?  @db.Text // 次のアクション
+  followUpDate     DateTime? // フォローアップ予定日
+  // メタ
+  submittedAt      DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+}
+
+// =========================================
+// 評価（月次集計）
+// =========================================
+model Evaluation {
+  id                  String   @id @default(cuid())
+  staffId             String
+  period              String   // "2024-01" 形式
+  // 商談数実績
+  totalMeetings       Int      @default(0)
+  completedMeetings   Int      @default(0)
+  contracts           Int      @default(0)
+  lost                Int      @default(0)
+  followUps           Int      @default(0)
+  noShows             Int      @default(0)
+  // 金額実績
+  totalContractAmount Int      @default(0)
+  // 算出指標
+  conversionRate      Float    @default(0) // 成約率 (%)
+  feedbackSubmitRate  Float    @default(0) // フィードバック提出率 (%)
+  avgClosingScore     Float    @default(0) // 平均クロージングスコア
+  avgSelfScore        Float    @default(0) // 平均自己評価
+  noShowRate          Float    @default(0) // 無断キャンセル率 (%)
+  // 総合評価
+  totalScore          Float    @default(0) // 100点満点
+  grade               String?  // S / A / B / C / D
+  managerComment      String?  @db.Text
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  staff User @relation(fields: [staffId], references: [id])
+
+  @@unique([staffId, period])
+  @@index([period])
+}
+
+// =========================================
+// KPI目標設定
+// =========================================
+model KpiTarget {
+  id                      String  @id @default(cuid())
+  staffId                 String? // null = 全体目標
+  period                  String  // "2024-01"
+  targetMeetings          Int     @default(20)
+  targetContracts         Int     @default(10)
+  targetConversionRate    Float   @default(50.0)
+  targetContractAmount    Int     @default(0)
+
+  staff User? @relation(fields: [staffId], references: [id])
+
+  @@unique([staffId, period])
+}
+
+// =========================================
+// 通知ログ
+// =========================================
+model NotificationLog {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  target    String           // Chatwork room ID or user ID
+  message   String           @db.Text
+  status    String           @default("sent") // sent / failed
+  relatedId String?          // meetingId etc.
+  sentAt    DateTime         @default(now())
+}
+
+enum NotificationType {
+  FEEDBACK_REMINDER    // フィードバック催促
+  CONTRACT_ALERT       // 成約通知
+  MEETING_REMINDER     // 商談前リマインダー
+  DAILY_REPORT         // 日次レポート
+  MONTHLY_EVALUATION   // 月次評価通知
+}
