@@ -9,6 +9,7 @@ import {
   BarChart3,
   Settings,
   LogOut,
+  Package,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ const navItems = [
   { href: "/clients", icon: Users, label: "顧客管理" },
   { href: "/staff", icon: UserCog, label: "スタッフ管理", adminOnly: true },
   { href: "/evaluations", icon: BarChart3, label: "評価・分析" },
+  { href: "/sourcing", icon: Package, label: "商品仕入れ" },
 ];
 
 interface SidebarProps {

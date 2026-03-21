@@ -254,4 +254,169 @@ enum NotificationType {
   MEETING_REMINDER     // 商談前リマインダー
   DAILY_REPORT         // 日次レポート
   MONTHLY_EVALUATION   // 月次評価通知
+  SOURCING_ALERT       // 商品仕入れアラート
+}
+
+// =========================================
+// 商品仕入れ自動化
+// =========================================
+
+// トレンド商品（リサーチ結果）
+model SourcingProduct {
+  id              String              @id @default(cuid())
+  name            String              // 商品名
+  jan             String?             // JANコード
+  asin            String?             // Amazon ASIN
+  imageUrl        String?             @db.Text
+  category        String?             // 商品カテゴリ
+  officialUrl     String?             @db.Text // 公式サイトURL
+  officialPrice   Int?                // 公式サイト価格（円）
+  amazonPrice     Int?                // Amazon現在価格（円）
+  amazonStock     AmazonStockStatus   @default(UNKNOWN) // Amazon在庫状況
+  estimatedProfit Int?                // 推定利益（円）
+  profitMargin    Float?              // 利益率（%）
+  trendScore      Int                 @default(0) // トレンドスコア (0-100)
+  status          SourcingStatus      @default(DETECTED) // ステータス
+  notes           String?             @db.Text
+  detectedAt      DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  trendSources    TrendSource[]       // トレンド検出元
+  priceHistory    PriceHistory[]      // 価格推移
+  purchaseOrders  PurchaseOrder[]     // 仕入れ注文
+  amazonListings  AmazonListing[]     // Amazon出品
+
+  @@index([asin])
+  @@index([jan])
+  @@index([status])
+  @@index([trendScore])
+  @@index([detectedAt])
+}
+
+// 仕入れステータス
+enum SourcingStatus {
+  DETECTED          // トレンド検出済み
+  RESEARCHING       // リサーチ中
+  PROFITABLE        // 利益見込みあり
+  PURCHASING        // 仕入れ中
+  IN_STOCK          // 在庫あり（仕入れ済み）
+  LISTED            // Amazon出品中
+  SOLD              // 販売完了
+  SKIPPED           // スキップ（利益なし等）
+  EXPIRED           // トレンド終了
+}
+
+// Amazon在庫ステータス
+enum AmazonStockStatus {
+  IN_STOCK          // 在庫あり
+  LOW_STOCK         // 在庫わずか
+  OUT_OF_STOCK      // 在庫切れ
+  UNAVAILABLE       // 取り扱いなし
+  UNKNOWN           // 不明
+}
+
+// トレンド検出元
+model TrendSource {
+  id              String          @id @default(cuid())
+  productId       String
+  sourceType      TrendSourceType // 検出元の種類
+  sourceUrl       String?         @db.Text // ソースURL
+  sourceTitle     String?         // ソースタイトル（TV番組名、ツイート内容等）
+  mentionCount    Int             @default(1) // 言及数
+  detectedAt      DateTime        @default(now())
+
+  product         SourcingProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([sourceType])
+}
+
+// トレンド検出元の種類
+enum TrendSourceType {
+  RAKUTEN_RANKING   // 楽天ランキング
+  TWITTER_BUZZ      // X(Twitter)バズ
+  TV_FEATURE        // テレビ紹介
+  DISCONTINUATION   // 生産終了・販売終了
+  NEWS_ARTICLE      // ニュース記事
+  MANUAL            // 手動登録
+}
+
+// 価格推移ログ
+model PriceHistory {
+  id              String          @id @default(cuid())
+  productId       String
+  amazonPrice     Int?            // Amazon価格
+  officialPrice   Int?            // 公式サイト価格
+  amazonStock     AmazonStockStatus @default(UNKNOWN)
+  recordedAt      DateTime        @default(now())
+
+  product         SourcingProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([recordedAt])
+}
+
+// 仕入れ注文
+model PurchaseOrder {
+  id              String              @id @default(cuid())
+  productId       String
+  purchaseSite    String              // 仕入先サイト名
+  purchaseUrl     String?             @db.Text // 仕入先URL
+  purchasePrice   Int                 // 仕入れ価格
+  quantity        Int                 @default(1)
+  totalCost       Int                 // 仕入れ合計額
+  orderStatus     OrderStatus         @default(PENDING)
+  orderNumber     String?             // 注文番号
+  trackingNumber  String?             // 追跡番号
+  estimatedArrival DateTime?          // 到着予定日
+  orderedAt       DateTime?           // 注文日時
+  arrivedAt       DateTime?           // 到着日時
+  notes           String?             @db.Text
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  product         SourcingProduct     @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([orderStatus])
+}
+
+// 仕入れ注文ステータス
+enum OrderStatus {
+  PENDING           // 注文前（候補）
+  ORDERED           // 注文済み
+  SHIPPED           // 発送済み
+  DELIVERED         // 到着済み
+  CANCELLED         // キャンセル
+  RETURNED          // 返品
+}
+
+// Amazon出品
+model AmazonListing {
+  id              String              @id @default(cuid())
+  productId       String
+  asin            String?             // Amazon ASIN
+  listingPrice    Int                 // 出品価格
+  quantity        Int                 @default(1)
+  listingStatus   ListingStatus       @default(DRAFT)
+  soldQuantity    Int                 @default(0)
+  totalRevenue    Int                 @default(0) // 売上合計
+  listedAt        DateTime?           // 出品日時
+  soldAt          DateTime?           // 販売完了日時
+  notes           String?             @db.Text
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  product         SourcingProduct     @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([listingStatus])
+}
+
+// 出品ステータス
+enum ListingStatus {
+  DRAFT             // 下書き
+  ACTIVE            // 出品中
+  SOLD              // 販売完了
+  CANCELLED         // 出品取消
 }

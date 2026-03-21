@@ -6,7 +6,7 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
 
   // 公開ルート
-  const publicRoutes = ["/login", "/api/auth", "/api/webhooks"];
+  const publicRoutes = ["/login", "/api/auth", "/api/webhooks", "/api/cron"];
   if (publicRoutes.some((r) => pathname.startsWith(r))) {
     if (isLoggedIn && pathname === "/login") {
       return NextResponse.redirect(new URL("/dashboard", req.url));
