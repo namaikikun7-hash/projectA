@@ -3,6 +3,7 @@ import { runFullResearch, evaluatePurchaseOpportunities } from "@/lib/sourcing/r
 import { notifySourcingOpportunities, notifyUrgentOpportunity } from "@/lib/sourcing/notify";
 import { prisma } from "@/lib/prisma";
 import { verifySourcingAccess } from "@/lib/sourcing/auth-guard";
+import { isDemoMode, getDemoSteps, getDemoSummary } from "@/lib/sourcing/demo-data";
 
 /**
  * POST /api/sourcing/voice-command
@@ -20,6 +21,16 @@ export async function POST(req: Request) {
 
   const body = await req.json();
   const command = (body.command || "").toLowerCase();
+
+  // デモモード: APIキーが未設定の場合はモックデータを返す
+  if (isDemoMode()) {
+    return NextResponse.json({
+      success: true,
+      command: body.command,
+      steps: getDemoSteps(body.command),
+      summary: getDemoSummary(),
+    });
+  }
 
   // フローのステップを記録（UIでリアルタイム表示用）
   const steps: Array<{
