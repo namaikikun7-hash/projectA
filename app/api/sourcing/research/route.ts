@@ -1,16 +1,14 @@
-import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import { runFullResearch, refreshAmazonData, evaluatePurchaseOpportunities } from "@/lib/sourcing/research-engine";
+import { verifySourcingAccess } from "@/lib/sourcing/auth-guard";
 
 /**
  * POST /api/sourcing/research - リサーチを実行
  * body: { type: "full" | "amazon" | "evaluate" }
  */
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-  }
+  const denied = await verifySourcingAccess(req);
+  if (denied) return denied;
 
   const body = await req.json();
   const type = body.type || "full";

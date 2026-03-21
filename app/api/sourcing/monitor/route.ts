@@ -1,15 +1,13 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { verifySourcingAccess } from "@/lib/sourcing/auth-guard";
 
 /**
  * GET /api/sourcing/monitor - ダッシュボード集計データ
  */
-export async function GET() {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-  }
+export async function GET(req: Request) {
+  const denied = await verifySourcingAccess(req);
+  if (denied) return denied;
 
   // 各ステータスの商品数
   const statusCounts = await prisma.sourcingProduct.groupBy({

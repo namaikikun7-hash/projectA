@@ -17,9 +17,10 @@ export function ResearchButton({ onComplete }: ResearchButtonProps) {
     setResult(null);
 
     try {
+      const token = sessionStorage.getItem("sourcing-token") || "";
       const res = await fetch("/api/sourcing/research", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-sourcing-token": token },
         body: JSON.stringify({ type }),
       });
 

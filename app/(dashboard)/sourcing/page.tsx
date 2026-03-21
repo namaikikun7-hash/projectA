@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { SourcingStatsCard } from "@/components/sourcing/sourcing-stats-card";
 import { ResearchButton } from "@/components/sourcing/research-button";
+import { sourcingFetch } from "@/components/sourcing/sourcing-gate";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -75,7 +76,7 @@ export default function SourcingDashboardPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch("/api/sourcing/monitor");
+      const res = await sourcingFetch("/api/sourcing/monitor");
       if (res.ok) {
         const json = await res.json();
         setData(json);

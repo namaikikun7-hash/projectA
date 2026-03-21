@@ -1,16 +1,14 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { verifySourcingAccess } from "@/lib/sourcing/auth-guard";
 
 /**
  * GET /api/sourcing/products - 商品一覧取得
  */
 export async function GET(req: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-  }
+  const denied = await verifySourcingAccess(req);
+  if (denied) return denied;
 
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
@@ -89,10 +87,8 @@ const createProductSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-  }
+  const denied = await verifySourcingAccess(req);
+  if (denied) return denied;
 
   const body = await req.json();
   const parsed = createProductSchema.safeParse(body);

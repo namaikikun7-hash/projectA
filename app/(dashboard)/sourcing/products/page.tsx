@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { ProductTable } from "@/components/sourcing/product-table";
 import { PurchaseDialog } from "@/components/sourcing/purchase-dialog";
 import { ResearchButton } from "@/components/sourcing/research-button";
+import { sourcingFetch } from "@/components/sourcing/sourcing-gate";
 import { Plus, Filter } from "lucide-react";
 
 interface Product {
@@ -76,7 +77,7 @@ export default function SourcingProductsPage() {
     params.set("order", searchParams.get("order") || "desc");
 
     try {
-      const res = await fetch(`/api/sourcing/products?${params}`);
+      const res = await sourcingFetch(`/api/sourcing/products?${params}`);
       if (res.ok) {
         const data = await res.json();
         setProducts(data.products);
@@ -94,7 +95,7 @@ export default function SourcingProductsPage() {
   }, [fetchProducts]);
 
   async function handleStatusChange(productId: string, status: string) {
-    await fetch(`/api/sourcing/products/${productId}`, {
+    await sourcingFetch(`/api/sourcing/products/${productId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
@@ -107,7 +108,7 @@ export default function SourcingProductsPage() {
     setAddError(null);
 
     try {
-      const res = await fetch("/api/sourcing/products", {
+      const res = await sourcingFetch("/api/sourcing/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newProductName }),

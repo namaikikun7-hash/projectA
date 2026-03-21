@@ -1,8 +1,8 @@
-import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import { runFullResearch, evaluatePurchaseOpportunities } from "@/lib/sourcing/research-engine";
 import { notifySourcingOpportunities, notifyUrgentOpportunity } from "@/lib/sourcing/notify";
 import { prisma } from "@/lib/prisma";
+import { verifySourcingAccess } from "@/lib/sourcing/auth-guard";
 
 /**
  * POST /api/sourcing/voice-command
@@ -15,10 +15,8 @@ import { prisma } from "@/lib/prisma";
  * ブラウザ側のWeb Speech APIで音声→テキスト変換後にこのAPIを叩く
  */
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-  }
+  const denied = await verifySourcingAccess(req);
+  if (denied) return denied;
 
   const body = await req.json();
   const command = (body.command || "").toLowerCase();

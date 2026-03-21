@@ -1,19 +1,17 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { verifySourcingAccess } from "@/lib/sourcing/auth-guard";
 
 /**
  * GET /api/sourcing/products/[id] - 商品詳細取得
  */
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-  }
+  const denied = await verifySourcingAccess(req);
+  if (denied) return denied;
 
   const product = await prisma.sourcingProduct.findUnique({
     where: { id: params.id },
@@ -55,10 +53,8 @@ export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-  }
+  const denied = await verifySourcingAccess(req);
+  if (denied) return denied;
 
   const body = await req.json();
   const parsed = updateProductSchema.safeParse(body);
@@ -83,13 +79,11 @@ export async function PATCH(
  * DELETE /api/sourcing/products/[id] - 商品を削除
  */
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-  }
+  const denied = await verifySourcingAccess(req);
+  if (denied) return denied;
 
   await prisma.sourcingProduct.delete({ where: { id: params.id } });
   return NextResponse.json({ success: true });
