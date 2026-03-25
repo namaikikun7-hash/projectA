@@ -7,7 +7,7 @@ import {
   Users,
   UserCog,
   BarChart3,
-  Settings,
+  ShoppingCart,
   LogOut,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
@@ -19,6 +19,7 @@ const navItems = [
   { href: "/clients", icon: Users, label: "顧客管理" },
   { href: "/staff", icon: UserCog, label: "スタッフ管理", adminOnly: true },
   { href: "/evaluations", icon: BarChart3, label: "評価・分析" },
+  { href: "/inventory-search", icon: ShoppingCart, label: "在庫検索" },
 ];
 
 interface SidebarProps {
