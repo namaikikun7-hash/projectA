@@ -1,5 +1,6 @@
 import { PrismaClient, Role, LeadSource } from "@prisma/client";
-import { hash } from "bcryptjs";
+import pkg from "bcryptjs";
+const { hash } = pkg;
 
 const prisma = new PrismaClient();
 
@@ -96,18 +97,21 @@ async function main() {
   const now = new Date();
   const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-  await prisma.kpiTarget.upsert({
-    where: { staffId_period: { staffId: null as unknown as string, period } },
-    update: {},
-    create: {
-      staffId: null,
-      period,
-      targetMeetings: 60,
-      targetContracts: 30,
-      targetConversionRate: 50.0,
-      targetContractAmount: 6000000,
-    },
+  const existingTarget = await prisma.kpiTarget.findFirst({
+    where: { staffId: null, period },
   });
+  if (!existingTarget) {
+    await prisma.kpiTarget.create({
+      data: {
+        staffId: null,
+        period,
+        targetMeetings: 60,
+        targetContracts: 30,
+        targetConversionRate: 50.0,
+        targetContractAmount: 6000000,
+      },
+    });
+  }
 
   console.log("Seed completed!");
   console.log(`Admin: admin@example.com / admin1234`);
