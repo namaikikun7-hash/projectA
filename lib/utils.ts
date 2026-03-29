@@ -38,3 +38,8 @@ export function getPeriodLabel(period: string): string {
   const [year, month] = period.split("-");
   return `${year}年${Number(month)}月`;
 }
+
+export function currentPeriod(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
